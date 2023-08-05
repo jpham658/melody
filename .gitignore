@@ -1,4 +1,5 @@
-/.env
+/.src/env
 /.vscode
 /melody pfp.jpeg
-/src/lavalink/logs
+/.src/lavalink/logs
+/.src/logs

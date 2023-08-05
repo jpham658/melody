@@ -29,6 +29,8 @@ class MusicCog(commands.Cog):
         """
         if not track:
             return await ctx.send("Please state what song you want to play.") 
+        elif not wavelink.YouTubeTrack.convert(track):
+            return await ctx.send("Track is invalid, please reenter.") 
         
         if not ctx.voice_client and not ctx.author.voice:
             return await ctx.send("Please enter a voice channel first!")
@@ -126,15 +128,45 @@ class MusicCog(commands.Cog):
         print("passed player isn't none check")
         await ctx.voice_client.disconnect()
         await ctx.send("Successfully disconnected from VC.")
+
+    @commands.command()
+    async def shuffle(self, ctx: commands.Context) -> None:
+        if not self.player or not self.player.is_connected():
+            return await ctx.send("You're not playing anything!")
+
+        if self.player.queue.is_empty:
+            return await ctx.send("Queue is empty.")
+        
+        await self.player.queue.shuffle()
+    
+    @commands.command()
+    async def clear(self, ctx: commands.Context) -> None:
+        if not self.player or not self.player.is_connected():
+            return await ctx.send("You're not playing anything!")
+
+        if self.player.queue.is_empty:
+            return await ctx.send("Queue is already empty.")
+        
+        await self.player.queue.reset()
+        await ctx.send("Queue is now empty.")
     
     @commands.command()
     async def skip(self, ctx: commands.Context):
-        return
+        if not self.player or not self.player.is_connected():
+            return await ctx.send("You're not playing anything!")
+        if self.player.queue.is_empty:
+            return await ctx.send("Queue is empty.")
 
     @commands.command()
-    async def queue(self, ctx: commands.Context, *, track: wavelink.YouTubeTrack):
-        return
-
+    async def queue(self, ctx: commands.Context, *, track: wavelink.YouTubeTrack=None):
+        if not self.player or not self.player.is_connected():
+            return await ctx.send("You're not playing anything!")
+        if not track:
+            return await ctx.send("Please state the song you want to queue!")
+        elif not wavelink.YouTubeTrack.convert(track):
+            return await ctx.send("Track is invalid, please reenter.") 
+        
+        self.player.queue
     @commands.Cog.listener()
     async def on_disconnect(self):
         if self.player and self.player.is_connected():

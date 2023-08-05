@@ -29,17 +29,16 @@ class MusicCog(commands.Cog):
 
         if player.is_playing():
             await ctx.send("I'm already playing something!")
-            return
-        
-        await player.play(track)
-        embed: nextcord.Embed = nextcord.Embed(colour=0xe5bed0, 
-                                                title=f"{track.title} by {track.author}", 
-                                                description=f"{track.duration}",
-                                                url=track.uri)
-        thumbnail: str = await track.fetch_thumbnail()
-        if thumbnail: 
-            embed.set_thumbnail(thumbnail)
-        await ctx.send(content="`˚₊‧꒰ა ♡ ໒꒱ ‧₊˚`", embed=embed)
+        else:
+            await player.play(track)
+            embed: nextcord.Embed = nextcord.Embed(colour=0xe5bed0, 
+                                                    title=f"{track.title} by {track.author}", 
+                                                    description=f"{track.duration}",
+                                                    url=track.uri)
+            thumbnail: str = await track.fetch_thumbnail()
+            if thumbnail: 
+                embed.set_thumbnail(thumbnail)
+            await ctx.send(content="`˚₊‧꒰ა ♡ ໒꒱ ‧₊˚`", embed=embed)
 
     @commands.command()
     async def pause(self, ctx):

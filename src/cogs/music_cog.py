@@ -15,11 +15,12 @@ class MusicCog(commands.Cog):
         commands.Cog.__init__(self)
         self.bot: commands.Bot = bot
         self.player: wavelink.Player = None
+        self.context: commands.Context = None
         bot.loop.create_task(self.node_connect())
 
     @commands.command()
     async def song(self, ctx: commands.Context):
-        if not self.player or not self.player.is_connected():
+        if not self.player or not self.player.is_connected() or not self.player.current:
             return await ctx.send("You're not playing anything.")
 
         await ctx.send(
@@ -27,11 +28,11 @@ class MusicCog(commands.Cog):
         )
 
     @commands.command()
-    async def play(self, ctx: commands.Context, *, track: wavelink.YouTubeTrack = None):
+    async def play(self, ctx: commands.Context, *, search: wavelink.YouTubeTrack | wavelink.YouTubePlaylist = None):
         """
         If the player is not playing a track, play the track given.
         """
-        if not track:
+        if not search:
             return await ctx.send("Please state what song you want to play.")
 
         if not ctx.voice_client and not ctx.author.voice:
@@ -47,15 +48,19 @@ class MusicCog(commands.Cog):
                 timeout=90, reconnect=False, cls=wavelink.Player
             )
 
+        if self.player.is_paused():
+            return await ctx.send("Use command '!resume' to unpause your music.")
+
         # Embed for message
-        embed: nextcord.Embed = await self.__create_embed(track)
+        embed: nextcord.Embed = await self.__create_embed(search)
 
         if self.player.queue.is_empty and not self.player.is_playing():
-            await self.player.play(track)
+            await self.player.play(search)
             await ctx.send(content="Currently playing:", embed=embed)
         else:
-            await self.player.queue.put_wait(track)
+            await self.player.queue.put_wait(search)
             await ctx.send(content="Queued:", embed=embed)
+        
 
     @commands.command()
     async def pause(self, ctx: commands.Context):
@@ -124,7 +129,6 @@ class MusicCog(commands.Cog):
         elif not self.player.is_connected():
             return await ctx.send("I've already disconnected from the channel.")
 
-        print("passed player isn't none check")
         await ctx.voice_client.disconnect()
         await ctx.send("Successfully disconnected from VC.")
 
@@ -158,11 +162,12 @@ class MusicCog(commands.Cog):
 
         # Play the next track if available
         if not self.player.queue.is_empty:
-            next_track: wavelink.YouTubeTrack = self.player.queue.get()
+            next_track: wavelink.YouTubeTrack = await self.player.queue.get_wait()
             await self.player.play(next_track)
-            await ctx.send("Skipped song!")
         else:
-            await ctx.send("Queue is empty!")
+            if self.player.current:
+                await self.player.stop()
+        await ctx.send("Skipped song!")
 
     @commands.Cog.listener()
     async def on_disconnect(self):
@@ -183,6 +188,11 @@ class MusicCog(commands.Cog):
     @commands.Cog.listener()
     async def on_wavelink_track_end(self, payload: wavelink.TrackEventPayload):
         print(f"Player has finished playing a track.")
+        if not self.player.queue.is_empty:
+            next_track: wavelink.YouTubeTrack = await self.player.queue.get_wait()
+            await self.player.play(next_track)
+        else:
+            print("Queue is empty.")
 
     @commands.Cog.listener()
     async def on_wavelink_websocket_closed(
@@ -200,14 +210,14 @@ class MusicCog(commands.Cog):
         )
         await wavelink.NodePool.connect(client=self.bot, nodes=[node])
 
-    async def __create_embed(self, track: wavelink.YouTubeTrack) -> nextcord.Embed:
+    async def __create_embed(self, search: wavelink.YouTubeTrack | wavelink.YouTubePlaylist) -> nextcord.Embed:
         embed: nextcord.Embed = nextcord.Embed(
             colour=self.EMBED_COLOUR,
-            title=f"{track.title} by {track.author}",
-            description=f"{track.duration}",
-            url=track.uri,
+            title=f"{search.title} by {search.author}",
+            description=f"{search.title}",
+            url=search.uri,
         )
-        thumbnail: str = await track.fetch_thumbnail()
+        thumbnail: str = await search.fetch_thumbnail()
         if thumbnail:
             embed.set_thumbnail(thumbnail)
         return embed

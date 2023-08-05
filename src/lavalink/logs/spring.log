@@ -593,3 +593,29 @@ java.util.concurrent.RejectedExecutionException: XNIO007007: Thread is terminati
 2023-08-05 18:14:24.718  INFO 13432 --- [XNIO-1 task-1] lavalink.server.io.RequestLoggingFilter  : GET /v3/decodetrack?encodedTrack=QAAAlQIAL0FteSBXaW5laG91c2UgLSBWYWxlcmllIGZ0LiBNYXJrIFJvbnNvbiAoQXVkaW8pAAxMb3ZlQW5kUGFyaXMAAAAAAAN2uAALekMyU1pPWTgwRGsAAQAraHR0cHM6Ly93d3cueW91dHViZS5jb20vd2F0Y2g/dj16QzJTWk9ZODBEawAHeW91dHViZQAAAAAAA3MM, client=0:0:0:0:0:0:0:1
 2023-08-05 18:14:31.369  INFO 13432 --- [XNIO-1 task-1] lavalink.server.io.RequestLoggingFilter  : DELETE /v3/sessions/a635zynv5f8mtxqg/players/1134166694986780783, client=0:0:0:0:0:0:0:1
 2023-08-05 18:14:31.369  INFO 13432 --- [XNIO-1 task-2] lavalink.server.io.RequestLoggingFilter  : DELETE /v3/sessions/2obrc28borhg7323/players/1134166694986780783, client=0:0:0:0:0:0:0:1
+2023-08-05 18:16:29.764  INFO 13432 --- [XNIO-1 I/O-10] lavalink.server.io.SocketServer          : Connection closed from /0:0:0:0:0:0:0:1:57747 -- CloseStatus[code=1006, reason=]
+2023-08-05 18:16:29.766  INFO 13432 --- [XNIO-1 I/O-10] lavalink.server.io.SocketContext         : Shutting down 0 playing players.
+2023-08-05 18:16:36.900  INFO 13432 --- [SpringApplicationShutdownHook] io.undertow                              : stopping server: Undertow - 2.2.16.Final
+2023-08-05 18:16:36.910 ERROR 13432 --- [XNIO-1 I/O-6] org.xnio.listener                        : XNIO001007: A channel event listener threw an exception
+
+java.util.concurrent.RejectedExecutionException: XNIO007007: Thread is terminating
+	at org.xnio.nio.WorkerThread.execute(WorkerThread.java:620) ~[xnio-nio-3.8.6.Final.jar!/:3.8.6.Final]
+	at io.undertow.websockets.jsr.UndertowSession$3.handleEvent(UndertowSession.java:396) ~[undertow-websockets-jsr-2.2.16.Final.jar!/:2.2.16.Final]
+	at io.undertow.websockets.jsr.UndertowSession$3.handleEvent(UndertowSession.java:388) ~[undertow-websockets-jsr-2.2.16.Final.jar!/:2.2.16.Final]
+	at org.xnio.ChannelListeners.invokeChannelListener(ChannelListeners.java:92) ~[xnio-api-3.8.6.Final.jar!/:3.8.6.Final]
+	at io.undertow.server.protocol.framed.AbstractFramedChannel$FrameCloseListener.handleEvent(AbstractFramedChannel.java:1081) ~[undertow-core-2.2.16.Final.jar!/:2.2.16.Final]
+	at io.undertow.server.protocol.framed.AbstractFramedChannel$FrameCloseListener.handleEvent(AbstractFramedChannel.java:994) ~[undertow-core-2.2.16.Final.jar!/:2.2.16.Final]
+	at org.xnio.ChannelListeners.invokeChannelListener(ChannelListeners.java:92) ~[xnio-api-3.8.6.Final.jar!/:3.8.6.Final]
+	at org.xnio.conduits.WriteReadyHandler$ChannelListenerHandler.terminated(WriteReadyHandler.java:70) ~[xnio-api-3.8.6.Final.jar!/:3.8.6.Final]
+	at org.xnio.nio.NioSocketConduit.writeTerminated(NioSocketConduit.java:204) ~[xnio-nio-3.8.6.Final.jar!/:3.8.6.Final]
+	at org.xnio.nio.NioSocketConduit.terminateWrites(NioSocketConduit.java:193) ~[xnio-nio-3.8.6.Final.jar!/:3.8.6.Final]
+	at org.xnio.nio.NioSocketConduit.truncateWrites(NioSocketConduit.java:198) ~[xnio-nio-3.8.6.Final.jar!/:3.8.6.Final]
+	at io.undertow.conduits.IdleTimeoutConduit.truncateWrites(IdleTimeoutConduit.java:387) ~[undertow-core-2.2.16.Final.jar!/:2.2.16.Final]
+	at org.xnio.conduits.ConduitStreamSinkChannel.close(ConduitStreamSinkChannel.java:186) ~[xnio-api-3.8.6.Final.jar!/:3.8.6.Final]
+	at org.xnio.IoUtils.safeClose(IoUtils.java:152) ~[xnio-api-3.8.6.Final.jar!/:3.8.6.Final]
+	at org.xnio.conduits.WriteReadyHandler$ChannelListenerHandler.forceTermination(WriteReadyHandler.java:57) ~[xnio-api-3.8.6.Final.jar!/:3.8.6.Final]
+	at org.xnio.nio.NioSocketConduit.forceTermination(NioSocketConduit.java:108) ~[xnio-nio-3.8.6.Final.jar!/:3.8.6.Final]
+	at org.xnio.nio.WorkerThread.run(WorkerThread.java:507) ~[xnio-nio-3.8.6.Final.jar!/:3.8.6.Final]
+
+2023-08-05 18:16:36.915  INFO 13432 --- [SpringApplicationShutdownHook] io.undertow.servlet                      : Destroying Spring FrameworkServlet 'dispatcherServlet'
+2023-08-05 18:16:36.918  INFO 13432 --- [SpringApplicationShutdownHook] c.s.d.l.tools.GarbageCollectionMonitor   : GC monitoring disabled.

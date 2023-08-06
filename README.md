@@ -4,12 +4,11 @@ Melody is a feature-rich Discord music bot that allows you to play music in your
 
 ## Features
 
-- High-quality music streaming from popular sources
-- Playback controls such as play, pause, skip, volume control, etc.
-- Queue management with the ability to add, remove, and shuffle tracks
+- High-quality music streaming from YouTube
+- Playback controls such as play, pause, skip, etc.
+- Queue management with the ability to add and shuffle tracks
 - Music search with flexible query options
 - Rich music-related commands
-- Customizable prefix
 - And more!
 
 ## Dependencies

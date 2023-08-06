@@ -35,7 +35,7 @@ Here are the available commands for Melody:
 - `!shuffle`: Shuffles the songs in the queue.
 - `!disconnect`: Disconnects the player from the voice channel.
 - `!clear`: Clears the player's queue.
-**To be implemented**
+- **To be implemented**
 - `!queue`: Displays the current music queue.
 - `!remove <index>`: Removes the song at the specified index from the queue.
 - `!volume <level>`: Adjusts the playback volume to the specified level.

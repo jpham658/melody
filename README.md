@@ -16,9 +16,7 @@ Melody is a feature-rich Discord music bot that allows you to play music in your
 To run the Melody bot, you need the following dependencies:
 
 - [Python 3.8+](https://www.python.org/downloads/)
-- [nextcord](https://github.com/nextcord/nextcord)
-  _**Just a note of caution, as Wavelink is not compatible with discord.py forks, you will need to
-   manually change discord.py imports in the WaveLink package files to nextcord for this to work.**_
+- [discord.py](https://github.com/Rapptz/discord.py)
 - [WaveLink](https://github.com/PythonistaGuild/Wavelink)
 - [Lavalink Server](https://github.com/lavalink-devs/Lavalink)
 - You will also need to get a Discord token by registering the bot on the [Discord developer portal](https://discord.com/developers/applications)
@@ -34,8 +32,8 @@ Here are the available commands for Melody:
 - `!shuffle`: Shuffles the songs in the queue.
 - `!disconnect`: Disconnects the player from the voice channel.
 - `!clear`: Clears the player's queue.
-- **To be implemented**
 - `!queue`: Displays the current music queue.
+- **To be implemented**
 - `!remove <index>`: Removes the song at the specified index from the queue.
 - `!volume <level>`: Adjusts the playback volume to the specified level.
 

@@ -1,24 +1,25 @@
+import asyncio
+import sys
 from dotenv import load_dotenv
-from nextcord.ext import commands
+from discord.ext import commands
 import wavelink
-import nextcord
+import discord
 import os
 
 load_dotenv()
 
 
 class MusicCog(commands.Cog):
-    EMBED_COLOUR: nextcord.Colour = 0xE5BED0
+    EMBED_COLOUR: discord.Colour = 0xE5BED0
 
     def __init__(self, bot: commands.Bot) -> None:
         """Constructor for the MusicCog."""
         commands.Cog.__init__(self)
         self.bot: commands.Bot = bot
         self.player: wavelink.Player = None
-        self.context: commands.Context = None
-        bot.loop.create_task(self.node_connect())
+        self.bot.loop.create_task(self.node_connect())
 
-    @commands.command()
+    @commands.command(name="song")
     async def song(self, ctx: commands.Context):
         if not self.player or not self.player.is_connected() or not self.player.current:
             return await ctx.send("You're not playing anything.")
@@ -27,21 +28,22 @@ class MusicCog(commands.Cog):
             f"Currently playing: {self.player.current.title} by {self.player.current.author}"
         )
 
-    @commands.command()
-    async def play(self, ctx: commands.Context, *, search: wavelink.YouTubeTrack | wavelink.YouTubePlaylist = None):
+    @commands.command(name="play")
+    async def play(self, ctx: commands.Context, *, search: wavelink.YouTubeTrack | wavelink.YouTubePlaylist = None) -> discord.Message:
         """
-        If the player is not playing a track, play the track given.
+        If the player is not playing a track, play the track/s given.
+        Otherwise, if the track is not valid or the user is not in
+        a voice channel, return an error message.
         """
         if not search:
             return await ctx.send("Please state what song you want to play.")
-
         if not ctx.voice_client and not ctx.author.voice:
             return await ctx.send("Please enter a voice channel first!")
 
         if ctx.voice_client:
-            vc: nextcord.VoiceChannel = ctx.voice_client
+            vc: discord.VoiceChannel = ctx.voice_client
         else:
-            vc: nextcord.VoiceChannel = ctx.author.voice.channel
+            vc: discord.VoiceChannel = ctx.author.voice.channel
 
         if not self.player or not self.player.is_connected():
             self.player: wavelink.Player = await vc.connect(
@@ -50,19 +52,30 @@ class MusicCog(commands.Cog):
 
         if self.player.is_paused():
             return await ctx.send("Use command '!resume' to unpause your music.")
-
-        # Embed for message
-        embed: nextcord.Embed = await self.__create_embed(search)
-
-        if self.player.queue.is_empty and not self.player.is_playing():
-            await self.player.play(search)
-            await ctx.send(content="Currently playing:", embed=embed)
-        else:
-            await self.player.queue.put_wait(search)
-            await ctx.send(content="Queued:", embed=embed)
         
+        if isinstance(search, wavelink.YouTubeTrack):
+            embed: discord.Embed = self.__create_songs_embed(search)
 
-    @commands.command()
+            if self.player.queue.is_empty and not self.player.is_playing():
+                await self.player.play(search)
+                return await ctx.send(content="Currently playing:", embed=embed)
+            else:
+                await self.player.queue.put_wait(track)
+                return await ctx.send(content="Queued:", embed=embed)
+        else:
+            embed: discord.Embed = self.__create_songs_embed(search)
+            await self.player.queue.put_wait(search)
+            
+            if not self.player.queue.is_empty and not self.player.is_playing():
+                track: wavelink.YouTubeTrack = await self.player.queue.get_wait()
+                await self.player.play(track)
+                return await ctx.send(
+                    content="Currently playing playlist:", embed=embed
+                )
+            else:
+                return await ctx.send(content="Queued:", embed=embed)
+
+    @commands.command(name="pause")
     async def pause(self, ctx: commands.Context):
         """
         Pause the current track playing.
@@ -71,9 +84,9 @@ class MusicCog(commands.Cog):
             return await ctx.send("Please enter a voice channel first!")
 
         if ctx.voice_client:
-            vc: nextcord.VoiceChannel = ctx.voice_client
+            vc: discord.VoiceChannel = ctx.voice_client
         else:
-            vc: nextcord.VoiceChannel = ctx.author.voice.channel
+            vc: discord.VoiceChannel = ctx.author.voice.channel
 
         if not self.player or not self.player.is_connected():
             self.player: wavelink.Player = await vc.connect(
@@ -90,7 +103,7 @@ class MusicCog(commands.Cog):
             f"Paused {self.player.current.title} by {self.player.current.author}"
         )
 
-    @commands.command()
+    @commands.command(name="resume")
     async def resume(self, ctx: commands.Context):
         """
         Resume playing a track that was paused.
@@ -99,9 +112,9 @@ class MusicCog(commands.Cog):
             return await ctx.send("Please enter a voice channel first!")
 
         if ctx.voice_client:
-            vc: nextcord.VoiceChannel = ctx.voice_client
+            vc: discord.VoiceChannel = ctx.voice_client
         else:
-            vc: nextcord.VoiceChannel = ctx.author.voice.channel
+            vc: discord.VoiceChannel = ctx.author.voice.channel
 
         if not self.player or not self.player.is_connected():
             self.player: wavelink.Player = await vc.connect(
@@ -118,7 +131,7 @@ class MusicCog(commands.Cog):
             f"Resumed playing {self.player.current.title} by {self.player.current.author}"
         )
 
-    @commands.command()
+    @commands.command(name="disconnect")
     async def disconnect(self, ctx: commands.Context):
         """
         The bot will leave the voice channel if connected and
@@ -132,7 +145,18 @@ class MusicCog(commands.Cog):
         await ctx.voice_client.disconnect()
         await ctx.send("Successfully disconnected from VC.")
 
-    @commands.command()
+    @commands.command(name="queue")
+    async def queue(self, ctx: commands.Context) -> discord.Message:
+        if not self.player:
+            return await ctx.send("You haven't played anything yet.")
+
+        if self.player.queue.is_empty:
+            return await ctx.send("Queue is empty.")
+        
+        embed: discord.Embed = self.__create_queue_embed(self.player.queue)
+        return await ctx.send(content="Queue:", embed=embed)
+
+    @commands.command(name="shuffle")
     async def shuffle(self, ctx: commands.Context) -> None:
         if not self.player or not self.player.is_connected():
             return await ctx.send("You're not playing anything!")
@@ -142,7 +166,7 @@ class MusicCog(commands.Cog):
 
         await self.player.queue.shuffle()
 
-    @commands.command()
+    @commands.command(name="clear")
     async def clear(self, ctx: commands.Context) -> None:
         if not self.player or not self.player.is_connected():
             return await ctx.send("You're not playing anything!")
@@ -153,21 +177,28 @@ class MusicCog(commands.Cog):
         await self.player.queue.reset()
         await ctx.send("Queue is now empty.")
 
-    @commands.command()
+    @commands.command(name="skip")
     async def skip(self, ctx: commands.Context):
         if not self.player or not self.player.is_connected():
             return await ctx.send("You're not playing anything!")
-        if self.player.queue.is_empty:
+        if self.player.queue.is_empty and not self.player.current:
             return await ctx.send("Queue is empty.")
 
         # Play the next track if available
-        if not self.player.queue.is_empty:
-            next_track: wavelink.YouTubeTrack = await self.player.queue.get_wait()
-            await self.player.play(next_track)
-        else:
-            if self.player.current:
-                await self.player.stop()
+        await self.player.stop()
         await ctx.send("Skipped song!")
+
+    @commands.Cog.listener()
+    async def on_ready(self):
+        print("MusicCog is ready.")
+
+    @commands.Cog.listener()
+    async def on_command_error(ctx: commands.Context, error: commands.errors.CommandError):
+        await ctx.send("Invalid command, try again!")
+
+    @commands.Cog.listener()
+    async def on_command_error(self):
+        print("Invalid command sent.")
 
     @commands.Cog.listener()
     async def on_disconnect(self):
@@ -187,7 +218,7 @@ class MusicCog(commands.Cog):
 
     @commands.Cog.listener()
     async def on_wavelink_track_end(self, payload: wavelink.TrackEventPayload):
-        print(f"Player has finished playing a track.")
+        print(f"Player has finished playing a track.\n")
         if not self.player.queue.is_empty:
             next_track: wavelink.YouTubeTrack = await self.player.queue.get_wait()
             await self.player.play(next_track)
@@ -210,18 +241,40 @@ class MusicCog(commands.Cog):
         )
         await wavelink.NodePool.connect(client=self.bot, nodes=[node])
 
-    async def __create_embed(self, search: wavelink.YouTubeTrack | wavelink.YouTubePlaylist) -> nextcord.Embed:
-        embed: nextcord.Embed = nextcord.Embed(
+    def __create_queue_embed(self, queue: wavelink.Queue) -> discord.Embed:
+        queue_list: str = ""
+        for track in queue:
+            queue_list += f"- {track.title} by {track.author}\n"
+
+        embed: discord.Embed = discord.Embed(
             colour=self.EMBED_COLOUR,
-            title=f"{search.title} by {search.author}",
-            description=f"{search.title}",
-            url=search.uri,
+            title="Queue:",
+            description=queue_list
         )
-        thumbnail: str = await search.fetch_thumbnail()
-        if thumbnail:
-            embed.set_thumbnail(thumbnail)
         return embed
+    
+    def __create_songs_embed(
+        self, search: wavelink.YouTubeTrack | wavelink.YouTubePlaylist
+    ) -> discord.Embed:
+        if isinstance(search, wavelink.YouTubeTrack):
+            embed: discord.Embed = discord.Embed(
+                colour=self.EMBED_COLOUR,
+                title=f"{search.title} by {search.author}",
+                description=f"{search.title}",
+                url=search.uri,
+            )
+            return embed
+        else:
+            tracklist: str = "".join(
+                f"{search.tracks.index(song)}. {song.title} by {song.author}\n"
+                for song in search.tracks
+            )
+            embed: discord.Embed = discord.Embed(
+                colour=self.EMBED_COLOUR,
+                title=f"{search.name}",
+                description=f"{tracklist}",
+            )
+            return embed
 
-
-def setup(bot):
-    bot.add_cog(MusicCog(bot))
+async def setup(bot: commands.Bot):
+    await bot.add_cog(MusicCog(bot))

@@ -2,5 +2,4 @@
 /.vscode
 /melody pfp.jpeg
 /src/lavalink/logs
-/src/*.bat
-/src/lavalink/*.bat
+/*.bat

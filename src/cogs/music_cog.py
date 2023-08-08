@@ -17,13 +17,7 @@ class MusicCog(commands.Cog):
         self.player: wavelink.Player = None
         self.bot.loop.create_task(self.node_connect())
 
-    @commands.command(name="song")
-    async def song(self, ctx: commands.Context) -> discord.Message:
-        if not self.player or not self.player.is_connected() or not self.player.current:
-            return await ctx.send("You're not playing anything.")
-
-        embed: discord.Embed = self.__create_songs_embed(self.player.current)
-        return await ctx.send(content="Currently playing:", embed=embed)
+    # Player manipulation commands
 
     @commands.command(name="play")
     async def play(self, ctx: commands.Context, *, search: wavelink.YouTubeTrack | wavelink.YouTubePlaylist = None) -> discord.Message:
@@ -132,22 +126,31 @@ class MusicCog(commands.Cog):
         return await ctx.send(
             f"Resumed playing {self.player.current.title} by {self.player.current.author}"
         )
-
-    @commands.command(name="disconnect")
-    async def disconnect(self, ctx: commands.Context) -> discord.Message:
+    
+    @commands.command(name="skip")
+    async def skip(self, ctx: commands.Context) -> discord.Message:
         """
-        The bot will leave the voice channel if connected and
-        stop playing music.
+        Skip the song currently playing.
 
-        :return: A Message object describing if the player has disconnected from VC.
+        :return: A Message object describing if the current song has been skipped.
         """
-        if not self.player:
-            return await ctx.send("You haven't played anything yet.")
-        elif not self.player.is_connected():
-            return await ctx.send("I've already disconnected from the channel.")
+        if not self.player or not self.player.is_connected():
+            return await ctx.send("You're not playing anything!")
+        if self.player.queue.is_empty and not self.player.current:
+            return await ctx.send("Queue is empty.")
 
-        await ctx.voice_client.disconnect()
-        return await ctx.send("Successfully disconnected from VC.")
+        await self.player.stop()
+        return await ctx.send("Skipped song!")
+    
+    # Information commands
+
+    @commands.command(name="song")
+    async def song(self, ctx: commands.Context) -> discord.Message:
+        if not self.player or not self.player.is_connected() or not self.player.current:
+            return await ctx.send("You're not playing anything.")
+
+        embed: discord.Embed = self.__create_songs_embed(self.player.current)
+        return await ctx.send(content="Currently playing:", embed=embed)
 
     @commands.command(name="queue")
     async def queue(self, ctx: commands.Context) -> discord.Message:
@@ -165,8 +168,10 @@ class MusicCog(commands.Cog):
         embed: discord.Embed = self.__create_queue_embed(self.player.queue)
         return await ctx.send(content="Queue:", embed=embed)
 
+    # Queue manipulation commands
+
     @commands.command(name="shuffle")
-    async def shuffle_queue(self, ctx: commands.Context) -> discord.Message:
+    async def shuffle(self, ctx: commands.Context) -> discord.Message:
         """
         Shuffle the player's queue.
 
@@ -193,21 +198,24 @@ class MusicCog(commands.Cog):
 
         await self.player.queue.reset()
         return await ctx.send("Queue is now empty.")
-
-    @commands.command(name="skip")
-    async def skip(self, ctx: commands.Context) -> discord.Message:
+    
+    # Bot manipulation commands
+    
+    @commands.command(name="disconnect")
+    async def disconnect(self, ctx: commands.Context) -> discord.Message:
         """
-        Skip the song currently playing.
+        The bot will leave the voice channel if connected and
+        stop playing music.
 
-        :return: A Message object describing if the current song has been skipped.
+        :return: A Message object describing if the player has disconnected from VC.
         """
-        if not self.player or not self.player.is_connected():
-            return await ctx.send("You're not playing anything!")
-        if self.player.queue.is_empty and not self.player.current:
-            return await ctx.send("Queue is empty.")
+        if not self.player:
+            return await ctx.send("You haven't played anything yet.")
+        elif not self.player.is_connected():
+            return await ctx.send("I've already disconnected from the channel.")
 
-        await self.player.stop()
-        return await ctx.send("Skipped song!")
+        await ctx.voice_client.disconnect()
+        return await ctx.send("Successfully disconnected from VC.")
 
     @commands.Cog.listener()
     async def on_ready(self):

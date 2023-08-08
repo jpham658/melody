@@ -17,7 +17,7 @@ class MusicCog(commands.Cog):
         self.player: wavelink.Player = None
         self.bot.loop.create_task(self.node_connect())
 
-    # Player manipulation commands
+    # Song manipulation commands
 
     @commands.command(name="play")
     async def play(self, ctx: commands.Context, *, search: wavelink.YouTubeTrack | wavelink.YouTubePlaylist = None) -> discord.Message:
@@ -199,8 +199,19 @@ class MusicCog(commands.Cog):
         await self.player.queue.reset()
         return await ctx.send("Queue is now empty.")
     
-    # Bot manipulation commands
-    
+    # Player manipulation commands
+
+    @commands.command(name="volume")
+    async def volume(self, ctx: commands.Context, volume: int) -> discord.Message:
+        if volume < 0 or volume > 1000:
+            return await ctx.send("Please enter a number between 0-1000.")
+        
+        if not self.player or not self.player.is_connected():
+            return await ctx.send("You're not playing anything!")
+        
+        await self.player.set_volume(volume)
+        return await ctx.send(f"Successfully set player volume to {volume}!")
+
     @commands.command(name="disconnect")
     async def disconnect(self, ctx: commands.Context) -> discord.Message:
         """

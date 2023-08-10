@@ -1,21 +1,61 @@
 from dotenv import load_dotenv
 from discord.ext import commands
+from discord.ext.commands import errors
 import wavelink
 import discord
 import os
-
 load_dotenv()
 
+# Exception classes
+class NoneSearchError(errors.CommandError):
+    pass
 
+class NoneVoiceChannelError(errors.CommandError):
+    pass
+
+class PlayerPausedError(errors.CommandError):
+    pass
+
+class NothingPlayingError(errors.CommandError):
+    pass
+
+class PlayerPlayingError(errors.CommandError):
+    pass
+
+class PlayerNotConnectedError(errors.CommandError):
+    pass
+
+class EmptyPlayerQueueError(errors.CommandError):
+    pass
+
+class OutOfBoundsError(errors.CommandError):
+    pass
+
+class NotInQueueError(errors.CommandError):
+    pass
+
+# Music cog
 class MusicCog(commands.Cog):
     EMBED_COLOUR: discord.Colour = 0xE5BED0
 
     def __init__(self, bot: commands.Bot) -> None:
         """Constructor for the MusicCog."""
         commands.Cog.__init__(self)
-        self.bot: commands.Bot = bot
-        self.player: wavelink.Player = None
+        self.__bot: commands.Bot = bot
+        self.__player: wavelink.Player = None
         self.bot.loop.create_task(self.node_connect())
+
+    @property 
+    def bot(self) -> commands.Bot:
+        return self.__bot
+    
+    @property
+    def player(self) -> wavelink.Player:
+        return self.__player
+    
+    @player.setter 
+    def player(self, value: wavelink.Player) -> None:
+        self.__player = value
 
     # Song manipulation commands
 
@@ -28,44 +68,51 @@ class MusicCog(commands.Cog):
         :return: A Message object describing if the player is playing anything.
         """
         if not search:
-            return await ctx.send("Please state what song you want to play.")
+            raise NoneSearchError
         if not ctx.voice_client and not ctx.author.voice:
-            return await ctx.send("Please enter a voice channel first!")
+            raise NoneVoiceChannelError
 
-        if ctx.voice_client:
-            vc: discord.VoiceChannel = ctx.voice_client
-        else:
-            vc: discord.VoiceChannel = ctx.author.voice.channel
+        vc: discord.VoiceChannel = ctx.voice_client if ctx.voice_client else ctx.author.voice.channel
 
         if not self.player or not self.player.is_connected():
-            self.player: wavelink.Player = await vc.connect(
-                timeout=90, reconnect=False, cls=wavelink.Player
-            )
+            await self.__player_connect(vc)
+        player: wavelink.Player = self.player
 
-        if self.player.is_paused():
-            return await ctx.send("Use command '!resume' to unpause your music.")
+        if player.is_paused():
+            raise PlayerPausedError
         
         if isinstance(search, wavelink.YouTubeTrack):
             embed: discord.Embed = self.__create_songs_embed(search)
 
-            if self.player.queue.is_empty and not self.player.is_playing():
-                await self.player.play(search)
+            if player.queue.is_empty and not player.is_playing():
+                await player.play(search)
                 return await ctx.send(content="Currently playing:", embed=embed)
             else:
-                await self.player.queue.put_wait(search)
+                await player.queue.put_wait(search)
                 return await ctx.send(content="Queued:", embed=embed)
         else:
             embed: discord.Embed = self.__create_songs_embed(search)
-            await self.player.queue.put_wait(search)
+            await player.queue.put_wait(search)
             
-            if not self.player.queue.is_empty and not self.player.is_playing():
-                track: wavelink.YouTubeTrack = await self.player.queue.get_wait()
-                await self.player.play(track)
+            if not player.queue.is_empty and not player.is_playing():
+                track: wavelink.YouTubeTrack = await player.queue.get_wait()
+                await player.play(track)
                 return await ctx.send(
                     content="Currently playing playlist:", embed=embed
                 )
             else:
                 return await ctx.send(content="Queued:", embed=embed)
+    
+    @play.error
+    async def on_command_error(self, ctx: commands.Context, err: errors.CommandError) -> None:
+        if isinstance(err, NoneSearchError):
+            await ctx.send("Please enter a song to play.")
+        elif isinstance(err, NoneVoiceChannelError):
+            await ctx.send("Please enter a voice channel first!")
+        elif isinstance(err, PlayerPausedError):
+            await ctx.send("The player is paused! Use `!resume` to play new songs.")
+        else:
+            await ctx.send("There was a problem with your command. Try again!")
 
     @commands.command(name="pause")
     async def pause(self, ctx: commands.Context) -> discord.Message:
@@ -75,27 +122,35 @@ class MusicCog(commands.Cog):
         :return: A Message object describing if the player has paused.
         """
         if not ctx.voice_client and not ctx.author.voice:
-            return await ctx.send("Please enter a voice channel first!")
+            raise NoneVoiceChannelError
 
-        if ctx.voice_client:
-            vc: discord.VoiceChannel = ctx.voice_client
-        else:
-            vc: discord.VoiceChannel = ctx.author.voice.channel
-
+        vc: discord.VoiceChannel = ctx.voice_client if ctx.voice_client else ctx.author.voice.channel
+       
         if not self.player or not self.player.is_connected():
-            self.player: wavelink.Player = await vc.connect(
-                timeout=90, reconnect=False, cls=wavelink.Player
-            )
+            self.__player_connect(vc)
 
-        if not self.player.current:
-            return await ctx.send("You're not playing anything!")
-        elif self.player.is_paused():
-            return await ctx.send("Your track is already paused!")
+        player: wavelink.Player = self.player
 
-        await self.player.pause()
+        if not player.current:
+            raise NothingPlayingError
+        elif player.is_paused():
+            raise PlayerPausedError
+
+        await player.pause()
         return await ctx.send(
             f"Paused {self.player.current.title} by {self.player.current.author}"
         )
+    
+    @pause.error
+    async def on_command_error(self, ctx: commands.Context, err: errors.CommandError) -> None:
+        if isinstance(err, NoneVoiceChannelError):
+            await ctx.send("Please enter a voice channel first!")
+        elif isinstance(err, NothingPlayingError):
+            await ctx.send("You aren't playing anything!")
+        elif isinstance(err, PlayerPausedError):
+            await ctx.send("Player is already paused.")
+        else:
+            await ctx.send("There was a problem with your command. Try again!")
 
     @commands.command(name="resume")
     async def resume(self, ctx: commands.Context) -> discord.Message:
@@ -105,27 +160,34 @@ class MusicCog(commands.Cog):
         :return: A Message object describing if the player resumed playing.
         """
         if not ctx.voice_client and not ctx.author.voice:
-            return await ctx.send("Please enter a voice channel first!")
+            raise NoneVoiceChannelError
 
-        if ctx.voice_client:
-            vc: discord.VoiceChannel = ctx.voice_client
-        else:
-            vc: discord.VoiceChannel = ctx.author.voice.channel
+        vc: discord.VoiceChannel = ctx.voice_client if ctx.voice_client else ctx.author.voice.channel
 
         if not self.player or not self.player.is_connected():
-            self.player: wavelink.Player = await vc.connect(
-                timeout=90, reconnect=False, cls=wavelink.Player
-            )
+            self.__player_connect(vc)
+        player: wavelink.Player = self.player
 
-        if not self.player.current:
-            return await ctx.send("You're not playing anything!")
-        elif not self.player.is_paused():
-            return await ctx.send("You're already playing something!")
+        if not player.current:
+            raise NothingPlayingError
+        elif not player.is_paused():
+            raise PlayerPlayingError
 
-        await self.player.resume()
+        await player.resume()
         return await ctx.send(
             f"Resumed playing {self.player.current.title} by {self.player.current.author}"
         )
+    
+    @resume.error
+    async def on_command_error(self, ctx: commands.Context, err: errors.CommandError) -> None:
+        if isinstance(err, NoneVoiceChannelError):
+            await ctx.send("Please enter a voice channel first!")
+        elif isinstance(err, NothingPlayingError):
+            await ctx.send("You aren't playing anything!")
+        elif isinstance(err, PlayerPlayingError):
+            await ctx.send("You're already playing something!")
+        else:
+            await ctx.send("There was a problem with your command. Try again!")
     
     @commands.command(name="skip")
     async def skip(self, ctx: commands.Context) -> discord.Message:
@@ -134,23 +196,48 @@ class MusicCog(commands.Cog):
 
         :return: A Message object describing if the current song has been skipped.
         """
-        if not self.player or not self.player.is_connected():
-            return await ctx.send("You're not playing anything!")
-        if self.player.queue.is_empty and not self.player.current:
-            return await ctx.send("Queue is empty.")
+        player: wavelink.Player = self.player
 
-        await self.player.stop()
+        if not player or not player.is_connected():
+            raise PlayerNotConnectedError
+        if player.queue.is_empty and not player.current:
+            raise EmptyPlayerQueueError
+
+        await player.stop()
         return await ctx.send("Skipped song!")
+    
+    @skip.error
+    async def on_command_error(self, ctx: commands.Context, err: errors.CommandError) -> None:
+        if isinstance(err, PlayerNotConnectedError):
+            await ctx.send("Player isn't connected. Join a VC and try again!")
+        elif isinstance(err, EmptyPlayerQueueError):
+            await ctx.send("Queue is empty; nothing to skip here!")
+        else:
+            await ctx.send("There was a problem with your command. Try again!")
     
     # Information commands
 
     @commands.command(name="song")
     async def song(self, ctx: commands.Context) -> discord.Message:
-        if not self.player or not self.player.is_connected() or not self.player.current:
-            return await ctx.send("You're not playing anything.")
+        player: wavelink.Player = self.player
+
+        if not player or not player.is_connected():
+            raise PlayerNotConnectedError
+        
+        if not player.current:
+            raise NothingPlayingError
 
         embed: discord.Embed = self.__create_songs_embed(self.player.current)
         return await ctx.send(content="Currently playing:", embed=embed)
+    
+    @song.error
+    async def on_command_error(self, ctx: commands.Context, err: errors.CommandError) -> None:
+        if isinstance(err, PlayerNotConnectedError):
+            await ctx.send("Player isn't connected. Join a VC and try again!")
+        elif isinstance(err, NothingPlayingError):
+            await ctx.send("Nothing is playing currently.")
+        else:
+            await ctx.send("There was a problem with your command. Try again!")
 
     @commands.command(name="queue")
     async def queue(self, ctx: commands.Context) -> discord.Message:
@@ -159,16 +246,60 @@ class MusicCog(commands.Cog):
 
         :return: A Message object describing the queue's current state.
         """
-        if not self.player:
-            return await ctx.send("You haven't played anything yet.")
+        player: wavelink.Player = self.player
 
-        if self.player.queue.is_empty:
-            return await ctx.send("Queue is empty.")
+        if not player or not player.is_connected():
+            raise PlayerNotConnectedError
+
+        if player.queue.is_empty:
+            raise EmptyPlayerQueueError
         
         embed: discord.Embed = self.__create_queue_embed(self.player.queue)
         return await ctx.send(content="Queue:", embed=embed)
+    
+    @queue.error
+    async def on_command_error(self, ctx: commands.Context, err: errors.CommandError) -> None:
+        if isinstance(err, PlayerNotConnectedError):
+            await ctx.send("Player isn't connected. Join a VC and try again!")
+        elif isinstance(err, EmptyPlayerQueueError):
+            await ctx.send("Queue is empty!")
+        else:
+            await ctx.send("There was a problem with your command. Try again!")
 
     # Queue manipulation commands
+
+    @commands.command(name="remove")
+    async def remove(self, ctx: commands.Context, *, search: wavelink.YouTubeTrack | wavelink.YouTubePlaylist = None) -> discord.Message:
+        if not search:
+            raise NoneSearchError
+        
+        player: wavelink.Player = self.player
+
+        if not player or not player.is_connected():
+            raise PlayerNotConnectedError
+        
+        if not player.queue or player.queue.is_empty:
+            raise EmptyPlayerQueueError
+        
+        if not search in player.queue:
+            raise NotInQueueError
+        
+        index: int = player.queue.find_position(search)
+        del player.queue[index]
+        await ctx.send(f"Successfully removed '{search.title} by {search.author}' from queue.")
+    
+    @remove.error
+    async def on_command_error(self, ctx: commands.Context, err: errors.CommandError) -> None:
+        if isinstance(err, NoneSearchError):
+            await ctx.send("Please enter a song to play.")
+        elif isinstance(err, PlayerNotConnectedError):
+            await ctx.send("Player isn't connected. Join a VC and try again!")
+        elif isinstance(err, EmptyPlayerQueueError):
+            await ctx.send("Queue is empty, could not remove the track!")
+        elif isinstance(err, NotInQueueError):
+            await ctx.send("This track is not in the queue.")
+        else:
+            await ctx.send("There was a problem with your command. Try again!")
 
     @commands.command(name="shuffle")
     async def shuffle(self, ctx: commands.Context) -> discord.Message:
@@ -177,40 +308,71 @@ class MusicCog(commands.Cog):
 
         :return: A Message object describing if the queue has been shuffled.
         """
-        if not self.player or not self.player.is_connected():
-            return await ctx.send("You're not playing anything!")
+        player: wavelink.Player = self.player
 
-        if not self.player.queue or self.player.queue.is_empty:
-            return await ctx.send("Queue is empty.")
+        if not player or not player.is_connected():
+            raise PlayerNotConnectedError
 
-        self.player.queue.shuffle()
+        if not player.queue or player.queue.is_empty:
+            raise EmptyPlayerQueueError
+
+        player.queue.shuffle()
         await ctx.send("Shuffled the queue!")
         embed: discord.Embed = self.__create_queue_embed(self.player.queue)
         return await ctx.send(content="Queue:", embed=embed)
     
+    @shuffle.error
+    async def on_command_error(self, ctx: commands.Context, err: errors.CommandError) -> None:
+        if isinstance(err, PlayerNotConnectedError):
+            await ctx.send("Player isn't connected. Join a VC and try again!")
+        elif isinstance(err, EmptyPlayerQueueError):
+            await ctx.send("Queue is empty!")
+        else:
+            await ctx.send("There was a problem with your command. Try again!")
+    
     @commands.command(name="clear")
     async def clear(self, ctx: commands.Context) -> discord.Message:
-        if not self.player or not self.player.is_connected():
-            return await ctx.send("You're not playing anything!")
+        player: wavelink.Player = self.player
 
-        if self.player.queue.is_empty:
-            return await ctx.send("Queue is already empty.")
+        if not player or not player.is_connected():
+            raise PlayerNotConnectedError
 
-        await self.player.queue.reset()
+        if player.queue.is_empty:
+            raise EmptyPlayerQueueError
+
+        player.queue.reset()
         return await ctx.send("Queue is now empty.")
+    
+    @clear.error
+    async def on_command_error(self, ctx: commands.Context, err: errors.CommandError) -> None:
+        if isinstance(err, PlayerNotConnectedError):
+            await ctx.send("Player isn't connected. Join a VC and try again!")
+        elif isinstance(err, EmptyPlayerQueueError):
+            await ctx.send("Queue is empty!")
+        else:
+            await ctx.send("There was a problem with your command. Try again!")
     
     # Player manipulation commands
 
     @commands.command(name="volume")
     async def volume(self, ctx: commands.Context, volume: int) -> discord.Message:
-        if volume < 0 or volume > 1000:
-            return await ctx.send("Please enter a number between 0-1000.")
+        if volume < 0 or volume > 150:
+            raise OutOfBoundsError
         
         if not self.player or not self.player.is_connected():
-            return await ctx.send("You're not playing anything!")
+            raise PlayerNotConnectedError
         
         await self.player.set_volume(volume)
         return await ctx.send(f"Successfully set player volume to {volume}!")
+    
+    @volume.error
+    async def on_command_error(self, ctx: commands.Context, err: errors.CommandError) -> None:
+        if isinstance(err, PlayerNotConnectedError):
+            await ctx.send("Player isn't connected. Join a VC and try again!")
+        elif isinstance(err, OutOfBoundsError):
+            await ctx.send("Please enter a volume between 0-150 (inclusive).")
+        else:
+            await ctx.send("There was a problem with your command. Try again!")
 
     @commands.command(name="disconnect")
     async def disconnect(self, ctx: commands.Context) -> discord.Message:
@@ -220,13 +382,20 @@ class MusicCog(commands.Cog):
 
         :return: A Message object describing if the player has disconnected from VC.
         """
-        if not self.player:
-            return await ctx.send("You haven't played anything yet.")
-        elif not self.player.is_connected():
-            return await ctx.send("I've already disconnected from the channel.")
+        if not self.player or not self.player.is_connected():
+            raise PlayerNotConnectedError
 
         await ctx.voice_client.disconnect()
         return await ctx.send("Successfully disconnected from VC.")
+
+    @disconnect.error
+    async def on_command_error(self, ctx: commands.Context, err: errors.CommandError) -> None:
+        if isinstance(err, PlayerNotConnectedError):
+            await ctx.send("I'm not connected to VC.")
+        else:
+            await ctx.send("There was a problem with your command. Try again!")
+
+    # Listeners
 
     @commands.Cog.listener()
     async def on_ready(self):
@@ -278,6 +447,19 @@ class MusicCog(commands.Cog):
             uri=NODE_HOST, password=NODE_PASSWORD, use_http=True
         )
         await wavelink.NodePool.connect(client=self.bot, nodes=[node])
+
+    async def __player_connect(self, vc: discord.VoiceChannel) -> None:
+        """
+        Creates and connects player to a voice channel.
+        
+        :param vc: The voice channel we will connect to.
+        """
+        player: wavelink.Player = await vc.connect(
+                timeout=90, reconnect=False, cls=wavelink.Player
+            )
+        print("connected player")
+        self.player = player
+        print("set player")
 
     def __create_queue_embed(self, queue: wavelink.Queue) -> discord.Embed:
         queue_list: str = ""

@@ -21,8 +21,13 @@ async def load():
             print(f"Added {filename[:-3]}")
 
 async def main():
-    async with bot:
-        await load()
-        await bot.start(os.getenv("DISCORD_TOKEN"))
+    try:
+        async with bot:
+            await load()
+            await bot.start(os.getenv("DISCORD_TOKEN"))
+    except: 
+        loop: asyncio.AbstractEventLoop = asyncio.get_running_loop()
+        loop.stop()
+        raise Exception("NoneBotError: Bot is None.")
 
 asyncio.run(main())

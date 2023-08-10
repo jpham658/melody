@@ -6,34 +6,6 @@ import discord
 import os
 load_dotenv()
 
-# Exception classes
-class NoneSearchError(errors.CommandError):
-    pass
-
-class NoneVoiceChannelError(errors.CommandError):
-    pass
-
-class PlayerPausedError(errors.CommandError):
-    pass
-
-class NothingPlayingError(errors.CommandError):
-    pass
-
-class PlayerPlayingError(errors.CommandError):
-    pass
-
-class PlayerNotConnectedError(errors.CommandError):
-    pass
-
-class EmptyPlayerQueueError(errors.CommandError):
-    pass
-
-class OutOfBoundsError(errors.CommandError):
-    pass
-
-class NotInQueueError(errors.CommandError):
-    pass
-
 # Music cog
 class MusicCog(commands.Cog):
     EMBED_COLOUR: discord.Colour = 0xE5BED0
@@ -495,6 +467,34 @@ class MusicCog(commands.Cog):
                 description=f"{tracklist}",
             )
             return embed
+        
+# Exception classes
+class NoneSearchError(errors.CommandError):
+    pass
+
+class NoneVoiceChannelError(errors.CommandError):
+    pass
+
+class PlayerPausedError(errors.CommandError):
+    pass
+
+class NothingPlayingError(errors.CommandError):
+    pass
+
+class PlayerPlayingError(errors.CommandError):
+    pass
+
+class PlayerNotConnectedError(errors.CommandError):
+    pass
+
+class EmptyPlayerQueueError(errors.CommandError):
+    pass
+
+class OutOfBoundsError(errors.CommandError):
+    pass
+
+class NotInQueueError(errors.CommandError):
+    pass
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(MusicCog(bot))

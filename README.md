@@ -1,6 +1,6 @@
 # Melody Discord Music Bot
 
-Melody is a feature-rich Discord music bot that allows you to play music in your Discord server using the [nextcord](https://github.com/nextcord/nextcord) library and [WaveLink](https://github.com/PythonistaGuild/Wavelink) to interface with a local Lavalink server.
+Melody is a feature-rich Discord music bot that allows you to play music in your Discord server using the [discordpy](https://github.com/Rapptz/discord.py) library and [WaveLink](https://github.com/PythonistaGuild/Wavelink) to interface with a local Lavalink server.
 
 ## Features
 
